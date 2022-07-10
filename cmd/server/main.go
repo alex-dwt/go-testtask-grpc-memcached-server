@@ -3,11 +3,13 @@ package main
 import (
 	"log"
 	"net"
+	"os"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"github.com/alex-dwt/go-testtask-grpc-memcached-server/internal/adapters/handlers"
+	"github.com/alex-dwt/go-testtask-grpc-memcached-server/internal/adapters/storage/custom_memcached"
 	"github.com/alex-dwt/go-testtask-grpc-memcached-server/internal/adapters/storage/memory"
 	"github.com/alex-dwt/go-testtask-grpc-memcached-server/internal/service"
 	"github.com/alex-dwt/go-testtask-grpc-memcached-server/pkg/grpc_service"
@@ -21,7 +23,19 @@ func main() {
 	}
 	defer logger.Sync()
 
-	storage := memory.New()
+	var storage service.Storage
+	switch os.Getenv("STORAGE_TYPE") {
+	case "MEMORY":
+		storage = memory.New()
+	case "MEMCACHED":
+		storage, err = custom_memcached.New(":7779")
+		if err != nil {
+			logger.Fatal("failed to create memcached storage", zap.Error(err))
+		}
+	default:
+		logger.Fatal("wrong STORAGE_TYPE")
+	}
+
 	cacheService := service.New(logger, storage)
 
 	logger.Info("starting server...")
